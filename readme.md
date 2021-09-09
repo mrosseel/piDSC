@@ -1,4 +1,3 @@
-i
 # IC2 Setup
 
 ## Enable I2C in the kernel
@@ -62,6 +61,7 @@ There should be at least one position that has the device address.
 ## Install 
 
 `sudo pip3 install adafruit-circuitpython-displayio-layout`
+
 `sudo pip3 install adafruit-circuitpython-displayio-sh1107`
 
 ## Astropy library
@@ -69,4 +69,5 @@ There should be at least one position that has the device address.
 https://docs.astropy.org/
 
 `sudo pip3 install dms2dec`
+
 `sudo pip3 install astropy`
