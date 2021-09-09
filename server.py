@@ -35,6 +35,9 @@ debug = True
 # float roll = atan2(2.0f * (q[0] * q[1] + q[2] * q[3]), q[0] * q[0] - q[1] * q[1] - q[2] * q[2] + q[3] * q[3]);
 
 
+
+
+
 def return_none(value=None):
     """Dummy command implementation returning nothing."""
     return None
@@ -97,6 +100,124 @@ def meade_lx200_cmd_Sd_set_target_de(value):
         #sys.stderr.write("Error parsing declination :Sd%s# command: %s\n" % (value, err))
         return "0"
 
+def meade_lx200_cmd_St_set_latitude(value):
+    """For the :StsDD*MM# command, Sets the current site latitdue to sDD*MM
+    Returns: 0 - Invalid, 1 - Valid
+    """
+    #Expect this to be followed by an Sg command to set the longitude...
+    global local_site, config
+    try:
+        value = value.replace("*", "d")
+        #local_site.latitude = coords.AngularCoordinate(value)
+        # #That worked, should be safe to save the value to disk later...
+        # config.set("site", "latitude", value)
+        return "1"
+    except Exception as err:
+        sys.stderr.write("Error with :St%s# latitude: %s\n" % (value, err))
+        return "0"
+
+
+def meade_lx200_cmd_Sg_set_longitude(value):
+    """For the :SgDDD*MM# command, Set current site longitude to DDD*MM
+    Returns: 0 - Invalid, 1 - Valid
+    """
+    #Expected immediately after the set latitude command
+    #e.g. :St+56*29# then :Sg003*08'#
+    global local_site, config
+    try:
+        value = value.replace("*", "d")
+        #local_site.longitude = coords.AngularCoordinate(value)
+        sys.stderr.write("Local site now latitude %0.3fd, longitude %0.3fd\n"
+                         % (local_site.latitude.d, local_site.longitude.d))
+        #That worked, should be safe to save the value to disk:
+        #config.set("site", "longitude", value)
+        #save_config()
+        return "1"
+    except Exception as err:
+        sys.stderr.write("Error with :Sg%s# longitude: %s\n" % (value, err))
+        return "0"
+
+def meade_lx200_cmd_SG_set_local_timezone(value):
+    """For the :SGsHH.H# command, Set the number of hours added to local time to yield UTC
+    Returns: 0 - Invalid, 1 - Valid
+    """
+    #Expected immediately after the set latitude and longitude commands
+    #Seems the decimal is optional, e.g. :SG-00#
+    global local_site
+    try:
+        local_site.tz = float(value) # Can in theory be partial hour, so not int
+        sys.stderr.write("Local site timezone now %s\n" % local_site.tz)
+        return "1"
+    except Exception as err:
+        sys.stderr.write("Error with :SG%s# time zone: %s\n" % (value, err))
+        return "0"
+
+def meade_lx200_cmd_SL_set_local_time(value):
+    """For the :SLHH:MM:SS# command, Set the local Time
+    Returns: 0 - Invalid, 1 - Valid
+    """
+    global local_time_offset
+    local = time.time() + local_time_offset
+    #e.g. :SL00:10:48#
+    #Expect to be followed by an SC command to set the date.
+    try:
+        hh, mm, ss = (int(v) for v in value.split(":"))
+        if not (0 <= hh <= 24):
+            raise ValueError("Bad hour")
+        if not (0 <= mm <= 59):
+            raise ValueError("Bad minutes")
+        if not (0 <= ss <= 59):
+            raise ValueError("Bad seconds")
+        desired_seconds_since_midnight = 60*60*(hh + local_site.tz) + 60*mm + ss
+        t = time.gmtime(local)
+        current_seconds_since_midnight = 60*60*t.tm_hour + 60*t.tm_min + t.tm_sec
+        new_offset = desired_seconds_since_midnight - current_seconds_since_midnight
+        local_time_offset += new_offset
+        sys.stderr.write("Requested site time %i:%02i:%02i (TZ %s), new offset %is, total offset %is\n"
+                         % (hh, mm, ss, local_site.tz, new_offset, local_time_offset))
+        debug_time()
+        return "1"
+    except ValueError as err:
+        sys.stderr.write("Error with :SL%s# time setting: %s\n" % (value, err))
+        return "0"
+
+def meade_lx200_cmd_SC_set_local_date(value):
+    """For the :SCMM/DD/YY# command, Change Handbox Date to MM/DD/YY
+    Returns: <D><string>
+    D = '0' if the date is invalid. The string is the null string.
+    D = '1' for valid dates and the string is
+    'Updating Planetary Data#                              #',
+    Note: For LX200GPS/RCX400/Autostar II this is the UTC data!
+    """
+    #Expected immediately after an SL command setting the time.
+    #
+    #Exact list of values from http://www.dv-fansler.com/FTP%20Files/Astronomy/LX200%20Hand%20Controller%20Communications.pdf
+    #return "1Updating        planetary data. #%s#" % (" "*32)
+    #
+    #This seems to work but SkySafari takes a while to finish
+    #if setup as a Meade LX200 Classic - much faster on other
+    #models.
+    #
+    #Idea is to calculate any difference between the computer's
+    #date (e.g. 1 Jan 1980 if the Raspberry Pi booted offline)
+    #and the client's date in days (using the datetime module),
+    #and add this to our offset (converting it into seconds).
+    #
+    global local_time_offset
+    #TODO - Test this in non-GMT/UTC other time zones, esp near midnight
+    current = datetime.date.fromtimestamp(time.time() + local_time_offset)
+    try:
+        wanted = datetime.date.fromtimestamp(time.mktime(time.strptime(value, "%m/%d/%y")))
+        days = (wanted - current).days
+        local_time_offset += days * 24 * 60 * 60 # 86400 seconds in a day
+        sys.stderr.write("Requested site date %s (MM/DD/YY) gives offset of %i days\n" % (value, days))
+        debug_time()
+        return "1Updating Planetary Data#%s#" % (" "*30)
+    except ValueError as err:
+        sys.stderr.write("Error with :SC%s# date setting: %s\n" % (value, err))
+        return "0"
+
+
 command_map = {
     #Meade LX200 commands:
     ":CM": meade_lx200_cmd_CM_sync,
@@ -118,12 +239,12 @@ command_map = {
     ":RS": return_none, #set Slew rate to max (fastest)
     ":Sd": meade_lx200_cmd_Sd_set_target_de,
     ":Sr": meade_lx200_cmd_Sr_set_target_ra,
-    # ":St": meade_lx200_cmd_St_set_latitude,
-    # ":Sg": meade_lx200_cmd_Sg_set_longitude,
+    ":St": meade_lx200_cmd_St_set_latitude,
+    ":Sg": meade_lx200_cmd_Sg_set_longitude,
     ":Sw": return_none, #set max slew rate
-    # ":SG": meade_lx200_cmd_SG_set_local_timezone,
-    # ":SL": meade_lx200_cmd_SL_set_local_time,
-    # ":SC": meade_lx200_cmd_SC_set_local_date,
+    ":SG": meade_lx200_cmd_SG_set_local_timezone,
+    ":SL": meade_lx200_cmd_SL_set_local_time,
+    ":SC": meade_lx200_cmd_SC_set_local_date,
     # ":U":  meade_lx200_cmd_U_precision_toggle,
 }
 
@@ -145,7 +266,11 @@ while True:
     try:
         #sys.stdout.write("Client connected: %s, %s\n" % client_address)
         while True:
-            data += connection.recv(16)
+            try:
+                data += connection.recv(16).decode('utf-8')
+            finally:
+                print("Error getting data");
+
             if not data:
             #     imu.update()
                  break
@@ -186,7 +311,7 @@ while True:
                     if resp:
                         if debug:
                             sys.stdout.write("Command %r, sending %r\n" % (cmd, resp))
-                        connection.sendall(resp)
+                        connection.sendall(resp.encode('utf8'))
                     else:
                         if debug:
                             sys.stdout.write("Command %r, no response\n" % cmd)
