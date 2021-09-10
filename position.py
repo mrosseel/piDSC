@@ -2,8 +2,7 @@ import time
 import math
 import board
 import busio
-
-
+from dms2dec.dms_convert import dms2dec
 from adafruit_bno08x import (
     BNO_REPORT_ACCELEROMETER,
     BNO_REPORT_GYROSCOPE,
@@ -12,14 +11,12 @@ from adafruit_bno08x import (
 )
 from adafruit_bno08x.i2c import BNO08X_I2C
 
-i2c = busio.I2C(board.SCL, board.SDA, frequency=400000)
-bno = BNO08X_I2C(i2c)
-
-bno.enable_feature(BNO_REPORT_ACCELEROMETER)
-bno.enable_feature(BNO_REPORT_GYROSCOPE)
-bno.enable_feature(BNO_REPORT_MAGNETOMETER)
-bno.enable_feature(BNO_REPORT_ROTATION_VECTOR)
-
+print("Loading astropy")
+from astropy import units as u
+from astropy.coordinates import EarthLocation
+from astropy.coordinates import SkyCoord
+from astropy.time import Time
+from time import perf_counter
 
 def decdeg2dms(dd):
    is_positive = dd >= 0
@@ -53,28 +50,27 @@ def quaternion_to_euler(x, y, z, w):
  
     return roll_x, pitch_y, yaw_z # in radians
 
-def euler_to_alt_az1(roll_x, pitch_y, yaw_z):
-    alt = yaw_z * 180 / math.pi * 100
-    az = -roll_x * 180 / math.pi * 100
+# def euler_to_alt_az1(roll_x, pitch_y, yaw_z):
+#     alt = yaw_z * 180 / math.pi * 100
+#     az = -roll_x * 180 / math.pi * 100
 
-    return alt, az 
+#     return alt, az 
 
-# https://answers.ros.org/question/229797/calculate-azimuth-and-elevation-angles/
-def euler_to_alt_az2(roll_x, pitch_y, yaw_z):
-    magnitude = math.sqrt((roll_x*roll_x) + (pitch_y*pitch_y) + (yaw_z*yaw_z));
-    azimuth   = math.atan2(pitch_y, roll_x);
-    elevation = math.asin(yaw_z / magnitude);
-    return elevation, azimuth 
+# # https://answers.ros.org/question/229797/calculate-azimuth-and-elevation-angles/
+# def euler_to_alt_az2(roll_x, pitch_y, yaw_z):
+#     magnitude = math.sqrt((roll_x*roll_x) + (pitch_y*pitch_y) + (yaw_z*yaw_z));
+#     azimuth   = math.atan2(pitch_y, roll_x);
+#     elevation = math.asin(yaw_z / magnitude);
+#     return elevation, azimuth 
 
 # https://www.euclideanspace.com/maths/geometry/rotations/euler/
-
-
 # x = psi / bank / tilt / ψ / roll
 # y = theta / heading / azimuth / θ / yaw
 # z = phi / attitude / elevation / φ / pitch
 
 # https://gist.github.com/telegraphic/841212e8ab3252f5cffe
-def euler_to_alt_az(theta, phi, psi):
+#def euler_to_alt_az(theta, phi, psi):
+def euler_to_alt_az(psi, theta, phi):
     """ Az-El to Theta-Phi conversion.
   
     Args:
@@ -91,66 +87,94 @@ def euler_to_alt_az(theta, phi, psi):
 
     return el, az
 
-while True:
+def initBNO(i2c):
+    bno = BNO08X_I2C(i2c)
 
-    time.sleep(2)
-#    print("Acceleration:")
-#    accel_x, accel_y, accel_z = bno.acceleration  # pylint:disable=no-member
-#    print("X: %0.6f  Y: %0.6f Z: %0.6f  m/s^2" % (accel_x, accel_y, accel_z))
-#    print("")
+    bno.enable_feature(BNO_REPORT_ACCELEROMETER)
+    bno.enable_feature(BNO_REPORT_GYROSCOPE)
+    bno.enable_feature(BNO_REPORT_MAGNETOMETER)
+    bno.enable_feature(BNO_REPORT_ROTATION_VECTOR)
 
-#    print("Gyro:")
-#    gyro_x, gyro_y, gyro_z = bno.gyro  # pylint:disable=no-member
-#    print("X: %0.6f  Y: %0.6f Z: %0.6f rads/s" % (gyro_x, gyro_y, gyro_z))
-#    print("")
+    return bno;
 
-#    print("Magnetometer:")
-#    mag_x, mag_y, mag_z = bno.magnetic  # pylint:disable=no-member
-#    print("X: %0.6f  Y: %0.6f Z: %0.6f uT" % (mag_x, mag_y, mag_z))
-#    print("")
+def getCurrentAltAz(bno):
+    """ Fetches the current rotation coordinates from the bno08x sensor
+        and return them as Alt/Az degrees
 
-#    print("Rotation Vector Quaternion:")
-    qx, qy, qz, qw = bno.quaternion  # pylint:disable=no-member
-    print("Quaternion I: %0.6f  J: %0.6f K: %0.6f  Real: %0.6f" % (qx, qy, qz, qw))
-#    print("")
+    Args: 
+        bno: BNO08X_I2C object
 
-    # https://www.euclideanspace.com/maths/geometry/rotations/conversions/quaternionToEuler/
-    # heading = atan2(2*qy*qw-2*qx*qz , 1 - 2*qy2 - 2*qz2)
-    # attitude = asin(2*qx*qy + 2*qz*qw)
-    # bank = atan2(2*qx*qw-2*qy*qz , 1 - 2*qx2 - 2*qz2)
+    Returns:
+        (alt, az): Tuple of current position, in degrees
+    """
+    # Get the rotation vector quaternion from the bno08x device
+    qx, qy, qz, qw = bno.quaternion 
+    #print("Quaternion I: %0.6f  J: %0.6f K: %0.6f  Real: %0.6f" % (qx, qy, qz, qw))
 
-    # # first convert quaterion coordinates to euler coordinates
-    # yaw   = math.atan2(2.0 * (qy *qzk + qx * qw), qx * qx + qy *qz -qzk * q_k - qw * qw);
-    # pitch = -math.asin(2.0 * (qy *qzreal - qx * q_k));
-    # roll  = math.atan2(2.0 * (qx * qy +qzk * qw), qx * qx - qy *qz -qzk * q_k + qw * qw);
-
+    # convert the quaternion values to euler angles
     roll_x, pitch_y, yaw_z = quaternion_to_euler(qx, qy, qz, qw);
+    #print("Euler: roll: %0.6f, pitch: %0.6f, yaw: %0.6f" % (roll_x, pitch_y, yaw_z))
 
-
-    print("Euler: roll: %0.6f, pitch: %0.6f, yaw: %0.6f" % (roll_x, pitch_y, yaw_z))
-    print("")
-
-    # euler to alz/az
-    alt, az = euler_to_alt_az(roll_x, pitch_y, yaw_z)
+    # convert euler to alz/az (radians)
+    alt_rad, az_rad = euler_to_alt_az(roll_x, pitch_y, yaw_z)
 
     # convert radians to degrees
-    alt = alt * 180 / math.pi
-    az = -az * 180 / math.pi
+    alt = alt_rad * 180 / math.pi
+    az = -az_rad * 180 / math.pi
 
-    print("alt: %0.6f  az: %0.6f" % (alt, az))
-    print("")
+    # #print("Alt: %0.6f radians / Az: %0.6f radians" % (alt, az))
 
-    # https://answers.ros.org/question/229797/calculate-azimuth-and-elevation-angles/
+    return alt, az
+
+def getCurentRaDec(bno, earthLocation):
+    """ Fetches the current Alt/Az from the bno008x sensor
+        Using the astropy.coordinates.EarthLocation and the current system time, 
+        compute and return the current RA and Dec
+    """
+
+    # Get the current Alt/Az (in degrees) from the bno008x sensor
+    alt, az = getCurrentAltAz(bno)
+
+    # Generate the current sky coordinates based on alt, az, curret time, and current location
+    c = SkyCoord(alt = alt*u.deg, az = az*u.deg, obstime = Time.now(), frame = 'altaz', location = earthLocation)
+    radec = c.transform_to('icrs')
+
+    # https://docs.astropy.org/en/stable/coordinates/angles.html#representation
+    # print("RA: " + radec.ra.to_string(u.hour))
+    # print("DEC: " + radec.dec.to_string(u.degree, alwayssign=True))
+    return radec
 
 
-    alt_d, alt_m, alt_s = decdeg2dms(alt)
-    az_d, az_m, az_s = decdeg2dms(az)
+print("Init BNO")
+i2c = busio.I2C(board.SCL, board.SDA, frequency=400000)
+bno = initBNO(i2c)
 
-    print("alt: %i°%i'%0.2f" % (alt_d, alt_m, alt_s))
-    print("az: %i°%i'%0.2f" % (az_d, az_m, az_s))
+print("Setting up location")
+lat_dec = dms2dec("34°00'17.60 N")
+lng_dec = dms2dec("84°22'03.5 W")
+loc = EarthLocation(lat = lat_dec*u.deg, lon = lng_dec*u.deg, height = 300*u.m)
 
+print("Starting loop")
 
+while True:
 
+    # Get the current Alt/Az (in degrees) from the bno008x sensor
+    # alt, az = getCurrentAltAz(bno)
 
+    # alt_d, alt_m, alt_s = decdeg2dms(alt)
+    # az_d, az_m, az_s = decdeg2dms(az)
+
+    # print("Alt: %i°%i'%0.2f" % (alt_d, alt_m, alt_s))
+    # print("Az: %i°%i'%0.2f" % (az_d, az_m, az_s))
+
+    t0 = perf_counter()
+    radec = getCurentRaDec(bno, loc)
+
+    print(f'RA/DEC took {perf_counter() - t0:.2f} s')
+
+    print("RA: " + radec.ra.to_string(u.hour))
+    print("DEC: " + radec.dec.to_string(u.degree, alwayssign=True))
+
+    time.sleep(2)
 
 

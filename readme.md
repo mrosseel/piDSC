@@ -70,4 +70,8 @@ https://docs.astropy.org/
 
 `sudo pip3 install dms2dec`
 
+`sudo apt-get install libatlas-base-dev`
+
 `sudo pip3 install astropy`
+
+
