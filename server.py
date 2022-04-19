@@ -5,8 +5,10 @@
 import socket
 import os
 import sys
+import threading
 
-server_name = '192.168.1.213'
+
+server_name = ''
 server_port = 4030
 
 #Turn on for lots of logging...
@@ -51,14 +53,24 @@ def meade_lx200_cmd_CM_sync():
     return "M31 EX GAL MAG 3.5 SZ178.0'#"
     
 def meade_lx200_cmd_GD_get_dec():
-    return "+04*54'43#"
+    """Get Telescope Declination.
+    Returns: sDD*MM# or sDD*MM’SS#
+    Depending upon the current precision setting for the telescope. 
+    """
+
+    ra_str, dec_str = pos.getLX200_RADEC()
+    return dec_str
+    #return "+04*54'43#"
 
 def meade_lx200_cmd_GR_get_ra():
     """For the :GR# command, Get Telescope RA
     Returns: HH:MM.T# or HH:MM:SS#
     Depending which precision is set for the telescope
     """
-    return "06:33:21#";    
+
+    ra_str, dec_str = pos.getLX200_RADEC()
+    return ra_str
+    #return "06:33:21#";    
 
 
 # Processing ':Sr06:38:57#'
@@ -255,6 +267,14 @@ sys.stderr.write("Starting up on %s port %s\n" % server_address)
 sock.bind(server_address)
 sock.listen(1)
 
+# Start the thread to refresh the position
+import position
+from position import Positioner
+pos = Positioner()
+positionThread = threading.Thread(target=pos.radecLoop)
+positionThread.start()
+
+
 while True:
     # SkySafari v4.0.1 continously opens and closed the connection,
     # while Stellarium via socat opens it and keeps it open using:
@@ -269,7 +289,8 @@ while True:
             try:
                 data += connection.recv(16).decode('utf-8')
             finally:
-                print("Error getting data");
+                #print("Error getting data");
+                pass
 
             if not data:
             #     imu.update()
