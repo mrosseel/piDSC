@@ -20,7 +20,7 @@ class PlateSolver:
 
 		cmd = ["/usr/bin/solve-field"]
 		options = limitOptions + optimizedOptions + scaleOptions + fileOptions + [captureFile]
-		
+
 		if (debug):
 			print("Executing:")
 			print(cmd + options)
@@ -42,6 +42,7 @@ class PlateSolver:
 	def __parseSolvedOutput(self, result):
 		#success:
 		# Field center: (RA,Dec) = (165.113684, 33.228524) deg.
+		# Field center: (RA H:M:S, Dec D:M:S) = (11:00:27.284, +33:13:42.686).
 		# Field size: 5.46861 x 4.10503 degrees
 		# Field rotation angle: up is -37.1309 degrees E of N
 
@@ -57,8 +58,15 @@ class PlateSolver:
 	  		if (line.startswith("Field center: (RA,Dec)")):
 	  			label,radecstr = line.split('=')
 	  			ra, dec = re.findall("[-,+]?\d+\.\d+",radecstr)
-	  			solveResult.ra = ra
-	  			solveResult.dec = dec
+	  			solveResult.ra_deg = ra
+	  			solveResult.dec_deg = dec
+	  		if (line.startswith("Field center: (RA H:M:S, Dec D:M:S)")):
+	  			label,radecstr = line.split('=')
+	  			radecstr = radecstr.replace(').','')
+	  			radecstr = radecstr.replace('(','')
+	  			ra, dec = radecstr.split(',')
+	  			solveResult.ra_hms = ra.strip()
+	  			solveResult.dec_dms = dec.strip()	  			
 	  		if (line.startswith("Field rotation angle:")):
 	  			label,rotation = line.split(':')
 	  			[rotdegrees] = re.findall("[-,+]?\d+\.\d+",rotation)
