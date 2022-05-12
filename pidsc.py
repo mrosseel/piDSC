@@ -7,41 +7,73 @@ from solveResult import SolveResult
 from lx200Server import LX200Server
 from skyFiAutoDetect import skyFiAutoDetect
 
+
+#### Config
+
+# temp dir for writing any files
+# note that for highest speed, setup your fstab so that /tmp is all in RAM. Example entry: 
+#       tmpfs /tmp tmpfs defaults,noatime,nosuid 0 0
 tempDir = "/tmp"
 debug = True
 
+# Autodetect name used by SkySafari
 skyFiName = "pidsc"
+
+# port used by LX200 server. 4030 is standard
 lx200Port = 4030
 
-testImage = None # "/home/pi/astrometry_test/example.jpg" # full file name or None
+# the exposure time and gain for our camera
+expTime = 150 # ms
+gain = 95
+
+# test image, in case we're not actively pointing to the sky
+# value should be full file name or None
+testImage = "/home/pi/astrometry_test/example.jpg" 
+
+####
 
 
+# create a default position until we get an initial fix
+polarisPosition = SolveResult(validSolve = True);
+polarisPosition.ra_hms = "02:59:31.82"
+polarisPosition.dec_dms = "+89:21:26.1"
+
+# create a lock to use when updating the position from with a thread
+positionUpdateLock = threading.Lock()
+
+# method used by our LX200 server to get the current ra/dec, as a tuple
 def getCurrentRADEC():
-	return [solveResult.lx200ra(), solveResult.lx200dec()]
+	# use the lock
+	with positionUpdateLock:
+		pos = [currentPosition.lx200ra(), currentPosition.lx200dec()]
+	return pos
 
-
+# instantiate the camera and platesolver
 camera = ZWOImager(tempDir)
 plateSolver = PlateSolver(tempDir)
 
+# instantiate the lx200Server, passing in the method to get the current ra/dec
 lx200Server = LX200Server(getCurrentRADEC, '',lx200Port)
+# and start it on its own thread
 lx200Thread = threading.Thread(target=lx200Server.listen)
 lx200Thread.start()
 
+# instantiate and start the skyFi auto detect thread
 ssad = skyFiAutoDetect()
 ssadThread = threading.Thread(target=ssad.listenForSkyFiAutoDetect, args=(skyFiName,))
 ssadThread.start()
 
 
-expTime = 150 # ms
-gain = 95
+global currentPosition
+currentPosition = polarisPosition
 
-
+# main loop
 while(True):
-	global currentPosition
 
 	if (debug):
 		t0 = time.time()
 
+	# capture the image
 	captureFile = camera.capture(expTime,gain)
 
 	if (debug):
@@ -49,19 +81,23 @@ while(True):
 		print("Capture time: " + str(t1-t0))
 
 	cf = captureFile if testImage is None else testImage
+	# solve for the result
 	solveResult = plateSolver.solveImage(cf)
 
 	if (debug):
 		print(solveResult.toString())
 		t2 = time.time()
 
-	if (solveResult.validSolve): 
-		currentPosition = solveResult
+	if (solveResult.validSolve and solveResult.ra_deg != 0): 
+		print("New position")
+		# update the current position with the solve result
+		with positionUpdateLock:
+			currentPosition = solveResult
 	
 
 	if (debug):
 		print("Solve time:   " + str(t2-t1))
-		print("Total time:   " + str(t2-t0))
+		print("Capture + solve time:   " + str(t2-t0))
 
 	# cleanup our captured image
 	if os.path.exists(captureFile):

@@ -6,6 +6,12 @@ from solveResult import SolveResult
 
 debug = False
 
+# these should be configurable somewhere...
+# The scale is calculated from previous processed images from this camera / lens combo
+# For the test ASI120mm with a 50mm f/1.4 lens, this came out to ~15.35 arcsec/pix
+# thus the following low/high scale is set +/- 0.5 arcsec from there:
+scaleLow = "14.85"
+scaleHigh = "15.85"
 
 class PlateSolver:
 	def __init__(self, tempDir = "/tmp"):
@@ -13,10 +19,29 @@ class PlateSolver:
 
 	def solveImage(self, captureFile):
 
-		limitOptions = 		["--no-plots","--overwrite","--skip-solved","--cpulimit","7"]
-		optimizedOptions = 	["--downsample","4","--cpulimit","10","--no-remove-lines","--uniformize","0"]
-		scaleOptions = 		["--scale-units","arcsecperpix","--scale-low","14.85","--scale-high","15.85"]
-		fileOptions = 		["--dir",self.tempDir,"--new-fits","none","--solved","none","--match","none","--wcs","none","--corr","none","--rdls","none","--wcs","none","--temp-axy"]
+		limitOptions = 		(["--no-plots",		# don't generate plots - this takes a ton of time
+							 "--overwrite", 	# overwrite any existing files
+							 "--skip-solved", 	# skip any files we've already solved
+							 "--cpulimit","7"	# limit to 7 seconds(!). We use a fast timeout here because this code is supposed to be fast
+							 ]) 
+		optimizedOptions = 	(["--downsample","2",	# downsample 4x. 2 = faster by about 1.0 second; 4 = faster by 1.3 seconds
+							  "--no-remove-lines",	# Saves ~1.25 sec. Don't bother trying to remove surious lines from the image
+							  "--uniformize","0"	# Saves ~1.25 sec. Just process the image as-is
+							 ])
+		scaleOptions = 		(["--scale-units","arcsecperpix",	# next two params are in arcsecs. Supplying this saves ~0.5 sec
+							  "--scale-low",scaleLow,			# See config above
+							  "--scale-high",scaleHigh			# See config above
+							  ])
+		fileOptions = 		(["--dir",self.tempDir,	# for any files created, put them in the temp dir
+							  "--new-fits","none",	# Don't create a new fits
+							  "--solved","none",	# Don't generate the solved output
+							  "--match","none",		# Don't generate matched output
+							  "--wcs","none",		# Don't generate wcs files
+							  "--corr","none",		# Don't generate .corr files
+							  "--rdls","none",		# Don't generate the point list
+							  "--wcs","none",		# Don't generate wcs
+							  "--temp-axy"			# We can't specify not to create the axy list, but we can write it to /tmp
+							  ])
 
 		cmd = ["/usr/bin/solve-field"]
 		options = limitOptions + optimizedOptions + scaleOptions + fileOptions + [captureFile]
@@ -24,6 +49,8 @@ class PlateSolver:
 		if (debug):
 			print("Executing:")
 			print(cmd + options)
+
+		# Note that the result of this command is sent to STDOUT
 		result = subprocess.run(cmd + options, cwd="/tmp",capture_output=True, text=True)
 
 		if (debug):
@@ -37,6 +64,7 @@ class PlateSolver:
 				print("Cleaning up " + xylsFile)	
 			os.remove(xylsFile)
 
+		# parse the results of STDOUT
 		return self.__parseSolvedOutput(result.stdout)
 
 	def __parseSolvedOutput(self, result):

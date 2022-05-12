@@ -1,77 +1,25 @@
-# IC2 Setup
+# piDSC
 
-## Enable I2C in the kernel
+This project was inspired directly by astrokeith's excellent [eFinder](https://astrokeith.com/equipment/efinder/) project. This project is intended only for non-commercial use.
 
-`sudo raspi-config`
+piDSC is combination of a RaspberryPi 4 and a camera, to be mounted to a telescope. The pi constantly takes pictures through the camera of the night sky, and using the [astrometry.net](http://astrometry.net/doc/readme.html) package, determines the current RA/DEC that the telescope is pointing towards, and reports this to SkySafari or other planetarium software via the LX200 protocol.
 
+The difficulty in this project is aquiring and platesolving quickly enough for this to be usable. With a RaspberryPi 4B and an ASI120mm-s and 50mm f/1.4 lens, the process to aquire and platesolving an image takes approx 1.5 seconds.
 
-## Update I2C Baudrate
+## Configuration
 
-The BNO85 seems to work best on the Raspberry Pi with an I2C clock frequency of 400kHz. You can make that change by adding this line to your /boot/config.txt file:
+All the current configuration is in the top of the files (mostly pidsc.py and platesolver.py), and should be changed to a config file at some point.
 
+## Run
 
-`dtparam=i2c_arm=on`
+Run using `python3 pidsc.py`
 
-`dtparam=i2s=on`
-
-`dtparam=spi=on`
-
-`dtparam=i2c_arm_baudrate=400000`
-
-## Update Pi and Python
-
-Run the standard updates:
-
-`sudo apt-get update`
-
-`sudo apt-get upgrade`
-
-`sudo apt-get install python3-pip`
-
-`sudo pip3 install --upgrade setuptools`
+While on the same WiFi network as the pi, use SkySafari to connect. The code responds to the SkyFi autodetect, so the IP is not needed. Port is still 4030.
 
 
-## Install CircuitPython
+## Limitations / todo
 
-[Instructions](https://learn.adafruit.com/circuitpython-on-raspberrypi-linux/installing-circuitpython-on-raspberry-pi)
-
-`cd ~`
-
-`sudo pip3 install --upgrade adafruit-python-shell`
-
-`wget https://raw.githubusercontent.com/adafruit/Raspberry-Pi-Installer-Scripts/master/raspi-blinka.py`
-
-`sudo python3 raspi-blinka.py`
-
-## Verify
-
-To detect that the I2C device can be found on the bus: 
-
-`sudo i2cdetect -y 1` 
-
-There should be at least one position that has the device address.
-
-# BNO085
-
-`sudo pip3 install adafruit-circuitpython-bno08x`
-
-
-# OLED FeatherWing
-
-## Install 
-
-`sudo pip3 install adafruit-circuitpython-displayio-layout`
-
-`sudo pip3 install adafruit-circuitpython-displayio-sh1107`
-
-## Astropy library
-
-https://docs.astropy.org/
-
-`sudo pip3 install dms2dec`
-
-`sudo apt-get install libatlas-base-dev`
-
-`sudo pip3 install astropy`
-
+* The config options (including the SkyFi name) is all embedded in the code and should be moved
+* There's currently no easy way to align the camera with the telescope. I typically plug the camera into a computer and set using [FireCapture](http://www.firecapture.de/) or similar software so the camera's center matches the eyepiece center
+* The code does nothing to host a WiFi network, which doesn't work in the field.
 

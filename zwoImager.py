@@ -22,6 +22,8 @@ class ZWOImager:
 		self.tempDir = tempDir
 
 		global camera
+
+		# Perform as much of the camera init now, since this adds a fair amount of time
 		camera = asi.Camera(camera_id)
 		camera.set_control_value(asi.ASI_BANDWIDTHOVERLOAD, camera.get_controls()['BandWidth']['MinValue'])
 		camera.disable_dark_subtract()
