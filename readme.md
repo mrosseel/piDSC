@@ -6,6 +6,10 @@ piDSC is combination of a RaspberryPi 4 and a camera, to be mounted to a telesco
 
 The difficulty in this project is aquiring and platesolving quickly enough for this to be usable. With a RaspberryPi 4B and an ASI120mm-s and 50mm f/1.4 lens, the process to aquire and platesolving an image takes approx 1.5 seconds.
 
+## Installation
+
+[To be written] The main items are the zwo image library and the astrometry.net build (difficult).
+
 ## Configuration
 
 All the current configuration is in the top of the files (mostly pidsc.py and platesolver.py), and should be changed to a config file at some point.
