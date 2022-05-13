@@ -24,7 +24,7 @@ class PlateSolver:
 							 "--skip-solved", 	# skip any files we've already solved
 							 "--cpulimit","7"	# limit to 7 seconds(!). We use a fast timeout here because this code is supposed to be fast
 							 ]) 
-		optimizedOptions = 	(["--downsample","2",	# downsample 4x. 2 = faster by about 1.0 second; 4 = faster by 1.3 seconds
+		optimizedOptions = 	(["--downsample","4",	# downsample 4x. 2 = faster by about 1.0 second; 4 = faster by 1.3 seconds
 							  "--no-remove-lines",	# Saves ~1.25 sec. Don't bother trying to remove surious lines from the image
 							  "--uniformize","0"	# Saves ~1.25 sec. Just process the image as-is
 							 ])
