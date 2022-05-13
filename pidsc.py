@@ -28,7 +28,7 @@ gain = 95
 
 # test image, in case we're not actively pointing to the sky
 # value should be full file name or None
-testImage = "/home/pi/astrometry_test/example.jpg" 
+testImage = None # "/home/pi/astrometry_test/example.jpg" 
 
 ####
 
