@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "pidsc"
+version = "0.1.0"
+description = ""
+authors = ["Chris Corne", "Mike Rosseel <mike.rosseel@gmail.com>"]
+license = "GPL v3.0"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+zwoasi = "^0.1.0.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

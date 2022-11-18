@@ -6,6 +6,9 @@ from plateSolver import PlateSolver
 from solveResult import SolveResult
 from lx200Server import LX200Server
 from skyFiAutoDetect import skyFiAutoDetect
+import logging
+import argparse
+from debug_imager import DebugImager
 
 
 #### Config
@@ -14,7 +17,6 @@ from skyFiAutoDetect import skyFiAutoDetect
 # note that for highest speed, setup your fstab so that /tmp is all in RAM. Example entry: 
 #       tmpfs /tmp tmpfs defaults,noatime,nosuid 0 0
 tempDir = "/tmp"
-debug = True
 
 # Autodetect name used by SkySafari
 skyFiName = "pidsc"
@@ -26,9 +28,6 @@ lx200Port = 4030
 expTime = 150 # ms
 gain = 95
 
-# test image, in case we're not actively pointing to the sky
-# value should be full file name or None
-testImage = None # "/home/pi/astrometry_test/example.jpg" 
 
 ####
 
@@ -49,7 +48,6 @@ def getCurrentRADEC():
 	return pos
 
 # instantiate the camera and platesolver
-camera = ZWOImager(tempDir)
 plateSolver = PlateSolver(tempDir)
 
 # instantiate the lx200Server, passing in the method to get the current ra/dec
@@ -67,42 +65,65 @@ ssadThread.start()
 global currentPosition
 currentPosition = polarisPosition
 
-# main loop
-while(True):
 
-	if (debug):
-		t0 = time.time()
-
-	# capture the image
-	captureFile = camera.capture(expTime,gain)
-
-	if (debug):
-		t1 = time.time()
-		print("Capture time: " + str(t1-t0))
-
-	cf = captureFile if testImage is None else testImage
-	# solve for the result
-	solveResult = plateSolver.solveImage(cf)
-
-	if (debug):
-		print(solveResult.toString())
-		t2 = time.time()
-
-	if (solveResult.validSolve and solveResult.ra_deg != 0): 
-		print("New position")
-		# update the current position with the solve result
-		with positionUpdateLock:
-			currentPosition = solveResult
-	
-
-	if (debug):
-		print("Solve time:   " + str(t2-t1))
-		print("Capture + solve time:   " + str(t2-t0))
-
-	# cleanup our captured image
-	if os.path.exists(captureFile):
-		os.remove(captureFile)
+def main(fakecamera, debug):
+    t0,t1,t2 = 0,0,0
+    camera = ZWOImager(tempDir) if not fakecamera else DebugImager(tempDir)
 
 
-	if (debug):
-		print()
+    # main loop
+    while(True):
+
+        if (debug):
+            t0 = time.time()
+
+        # capture the image
+        captureFile = camera.capture(expTime,gain)
+
+        if (debug):
+            t1 = time.time()
+            logging.debug("Capture time: " + str(t1-t0))
+
+        # solve for the result
+        solveResult = plateSolver.solveImage(captureFile)
+
+        if (debug):
+            logging.debug(solveResult.toString())
+            t2 = time.time()
+
+        if (solveResult.validSolve and solveResult.ra_deg != 0): 
+            print("New position")
+            # update the current position with the solve result
+            with positionUpdateLock:
+                currentPosition = solveResult
+        
+
+        if (debug):
+            logging.debug("Solve time:   " + str(t2-t1))
+            logging.debug("Capture + solve time:   " + str(t2-t0))
+
+        # cleanup our captured image
+        if os.path.exists(captureFile):
+            os.remove(captureFile)
+
+        if (debug):
+            print()
+
+
+if __name__ == "__main__":
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+    logging.basicConfig(format="%(asctime)s %(name)s: %(levelname)s %(message)s")
+    parser = argparse.ArgumentParser(description="piDSC push-to")
+    parser.add_argument(
+        "-fc", "--fakecamera", help="Use a fake camera", default=False, action='store_true', required=False)
+    parser.add_argument(
+        "-x", "--verbose", help="Set logging to debug mode", action="store_true"
+    )
+    args = parser.parse_args()
+    # add the handlers to the logger
+    if args.verbose:
+        logger.setLevel(logging.DEBUG)
+
+    main(args.fakecamera, args.verbose)
+
