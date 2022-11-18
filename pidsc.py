@@ -47,19 +47,6 @@ def getCurrentRADEC():
 		pos = [currentPosition.lx200ra(), currentPosition.lx200dec()]
 	return pos
 
-# instantiate the camera and platesolver
-plateSolver = PlateSolver(tempDir)
-
-# instantiate the lx200Server, passing in the method to get the current ra/dec
-lx200Server = LX200Server(getCurrentRADEC, '',lx200Port)
-# and start it on its own thread
-lx200Thread = threading.Thread(target=lx200Server.listen)
-lx200Thread.start()
-
-# instantiate and start the skyFi auto detect thread
-ssad = skyFiAutoDetect()
-ssadThread = threading.Thread(target=ssad.listenForSkyFiAutoDetect, args=(skyFiName,))
-ssadThread.start()
 
 
 global currentPosition
@@ -70,6 +57,19 @@ def main(fakecamera, debug):
     t0,t1,t2 = 0,0,0
     camera = ZWOImager(tempDir) if not fakecamera else DebugImager(tempDir)
 
+    # instantiate the camera and platesolver
+    plateSolver = PlateSolver(tempDir)
+
+    # instantiate the lx200Server, passing in the method to get the current ra/dec
+    lx200Server = LX200Server(getCurrentRADEC, '',lx200Port)
+    # and start it on its own thread
+    lx200Thread = threading.Thread(target=lx200Server.listen)
+    lx200Thread.start()
+
+    # instantiate and start the skyFi auto detect thread
+    ssad = skyFiAutoDetect()
+    ssadThread = threading.Thread(target=ssad.listenForSkyFiAutoDetect, args=(skyFiName,))
+    ssadThread.start()
 
     # main loop
     while(True):
