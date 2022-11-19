@@ -26,8 +26,8 @@ class PlateSolver:
                               "--uniformize","0"	# Saves ~1.25 sec. Just process the image as-is
                              ])
         scaleOptions = 		(["--scale-units","arcsecperpix",	# next two params are in arcsecs. Supplying this saves ~0.5 sec
-                              "--scale-low",self.scaleLow,			# See config above
-                              "--scale-high",self.scaleHigh			# See config above
+                              "--scale-low",self.scale_low,			# See config above
+                              "--scale-high",self.scale_high			# See config above
                               ])
         fileOptions = 		(["--dir",self.tempDir,	# for any files created, put them in the temp dir
                               "--new-fits","none",	# Don't create a new fits

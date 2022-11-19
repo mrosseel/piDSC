@@ -1,6 +1,6 @@
 # piDSC
 
-This project was inspired directly by astrokeith's excellent [eFinder](https://astrokeith.com/equipment/efinder/) project. This project is intended only for non-commercial use.
+This project was inspired directly by astrokeith's excellent [eFinder](https://astrokeith.com/equipment/efinder/) project. This repo was forked from Chris Horne, the original author (see https://bitbucket.org/ckhorne_dev/pidsc). This project is intended only for non-commercial use.
 
 piDSC is combination of a RaspberryPi 4 and a camera, to be mounted to a telescope. The pi constantly takes pictures through the camera of the night sky, and using the [astrometry.net](http://astrometry.net/doc/readme.html) package, determines the current RA/DEC that the telescope is pointing towards, and reports this to SkySafari or other planetarium software via the LX200 protocol.
 
@@ -20,6 +20,9 @@ Run using `python3 pidsc.py`
 
 While on the same WiFi network as the pi, use SkySafari to connect. The code responds to the SkyFi autodetect, so the IP is not needed. Port is still 4030.
 
+## Development
+
+Run using 'python3 pidsc.py -h' to see all options available.
 
 ## Limitations / todo
 

@@ -28,14 +28,13 @@ lx200Port = 4030
 expTime = 150 # ms
 gain = 95
 
-
-####
-
-
 # create a default position until we get an initial fix
 polarisPosition = SolveResult(validSolve = True);
 polarisPosition.ra_hms = "02:59:31.82"
 polarisPosition.dec_dms = "+89:21:26.1"
+
+global currentPosition
+currentPosition = polarisPosition
 
 # create a lock to use when updating the position from with a thread
 positionUpdateLock = threading.Lock()
@@ -46,11 +45,6 @@ def getCurrentRADEC():
 	with positionUpdateLock:
 		pos = [currentPosition.lx200ra(), currentPosition.lx200dec()]
 	return pos
-
-
-
-global currentPosition
-currentPosition = polarisPosition
 
 
 def main(fakecamera, debug):
