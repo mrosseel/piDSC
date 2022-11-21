@@ -16,7 +16,7 @@ from debug_imager import DebugImager
 # temp dir for writing any files
 # note that for highest speed, setup your fstab so that /tmp is all in RAM. Example entry: 
 #       tmpfs /tmp tmpfs defaults,noatime,nosuid 0 0
-tempDir = "/tmp"
+tempDir = "/dev/shm/images"
 
 # Autodetect name used by SkySafari
 skyFiName = "pidsc"
@@ -25,7 +25,7 @@ skyFiName = "pidsc"
 lx200Port = 4030
 
 # the exposure time and gain for our camera
-expTime = 150 # ms
+exptime = 150 # ms
 gain = 95
 
 # create a default position until we get an initial fix
@@ -52,7 +52,8 @@ def main(fakecamera, debug):
     camera = ZWOImager(tempDir) if not fakecamera else DebugImager(tempDir)
 
     # instantiate the camera and platesolver
-    plateSolver = PlateSolver(tempDir)
+    # plateSolver = PlateSolver(astrometry_cmd='/usr/local/astrometry/bin/solve-field', tempDir=tempDir)
+    plateSolver = PlateSolver(astrometry_cmd='/dev/shm/astrometry/bin/solve-field', tempDir=tempDir)
 
     # instantiate the lx200Server, passing in the method to get the current ra/dec
     lx200Server = LX200Server(getCurrentRADEC, '',lx200Port)
@@ -72,7 +73,7 @@ def main(fakecamera, debug):
             t0 = time.time()
 
         # capture the image
-        captureFile = camera.capture(expTime,gain)
+        captureFile = camera.capture(exptime,gain)
 
         if (debug):
             t1 = time.time()
@@ -80,9 +81,10 @@ def main(fakecamera, debug):
 
         # solve for the result
         solveResult = plateSolver.solveImage(captureFile)
+        logging.debug(f"Solve result = {solveResult.toString()}")
 
         if (debug):
-            logging.debug(solveResult.toString())
+            # logging.debug(solveResult.toString())
             t2 = time.time()
 
         if (solveResult.validSolve and solveResult.ra_deg != 0): 

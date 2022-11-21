@@ -4,10 +4,10 @@ version = "0.1.0"
 description = ""
 authors = ["Chris Corne", "Mike Rosseel <mike.rosseel@gmail.com>"]
 license = "GPL v3.0"
-readme = "README.md"
+readme = "readme.md"
 
 [tool.poetry.dependencies]
-python = "^3.10"
+python = "^3.9"
 zwoasi = "^0.1.0.1"
 
 

@@ -35,11 +35,11 @@ class ZWOImager(Imager):
         camera.set_image_type(asi.ASI_IMG_RAW8)
 
 
-    def capture(self, expTime, gain):  
-        capturefile = self.tempdir + "/" + time.strftime("%y%m%d-%h%m%s") + "-capture.jpg"
+    def capture(self, exptime, gain):  
+        capturefile = self.tempDir + "/" + time.strftime("%y%m%d-%h%m%s") + "-capture.jpg"
         logging.debug("capturing " + capturefile)
-        camera.set_control_value(asi.asi_gain, gain * 5)
-        camera.set_control_value(asi.asi_exposure, exptime * 1000)# microseconds    
+        camera.set_control_value(asi.ASI_GAIN, gain * 5)
+        camera.set_control_value(asi.ASI_EXPOSURE, exptime * 1000)# microseconds    
         camera.capture(filename=capturefile)
         return capturefile
 
